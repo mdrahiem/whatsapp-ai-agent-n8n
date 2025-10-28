@@ -1,5 +1,9 @@
 # Complete Documentation: WhatsApp AI Assistant with Google Drive \& Chat History Integration
 
+> [!TIP]
+> **🚀 You can download the workflow directly from above and import it into your n8n instance to get started quickly! 🚀**
+
+
 ## Table of Contents
 
 1. [Overview](#overview)
