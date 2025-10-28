@@ -1,0 +1,343 @@
+{
+  "name": "NLTC",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.messageText }}",
+        "options": {
+          "systemMessage": "=You are a helpful assistant. You are an AI assistant with access to the user's Google Drive and their Whatsapp through connected tools.\n\nWhen the user asks about files, documents, or content in their Google Drive:\n1. Use the available Google Drive tool to fetch the current list of files\n2. Format the response clearly with file names and relevant details\n3. Only provide information from the tool results, don't make assumptions\n\nExample queries to handle:\n- \"Show me my files\"\n- \"List my documents\" \n- \"What files are in my drive?\"\n- \"Tell me about my documents\"\n\nWhen the user asks about their conversations or chat or contacts from their Whatsapp use the below tools:\n- get_whatsapp_chats: Returns list of all contacts with their IDs\n- get_whatsapp_messages_dynamic: Fetches messages from specific contact\n\n1. Use the available Whatsapp tool to fetch the data\n2. Format the response clearly\n3. Only provide information from the tool results, don't make assumptions\n\nCRITICAL: How to fetch messages from a contact:\n\nStep 1: Call get_whatsapp_chats\nStep 2: Look at the response and find the contact's \"remoteJid\" or \"id\" field\nStep 3: Call get_whatsapp_messages_dynamic and pass EXACTLY that value\n\nExample correct flow:\nUser asks: \"What did Piyali say?\"\n1. You call: get_whatsapp_chats\n2. Response shows: {\"id\": \"31617067698@s.whatsapp.net\", \"pushName\": \"Piyali Nath NL\"}\n3. You call: get_whatsapp_messages_dynamic with input: {\"remoteJid\": \"31617067698@s.whatsapp.net\"}\n\nThe remoteJid must be the EXACT value from step 2, including @s.whatsapp.net or @g.us\n\nExample queries to handle:\n- \"Who messaged me recently?\"\n\nBe concise, helpful, and always fetch fresh data using the tools provided."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "f126217b-5c43-41c4-b43a-1269c33b44d2",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {
+          "temperature": 0
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        192,
+        464
+      ],
+      "id": "825b96d2-4a92-494a-bc6e-046a2f555502",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "vOOhFJrWFSq71bKK",
+          "name": "nltc-n8n-gemini"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "limit": 50,
+        "queryString": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Search_Query', ``, 'string') }}",
+        "returnAll": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Return_All', ``, 'boolean') }}",
+        "filter": {
+          "folderId": {
+            "__rl": true,
+            "value": "0B0B-sZ5pK_zaOU1zU3dkLUZ3Wkk",
+            "mode": "list",
+            "cachedResultName": "stuff",
+            "cachedResultUrl": "https://drive.google.com/drive/folders/0B0B-sZ5pK_zaOU1zU3dkLUZ3Wkk?resourcekey=0-fm_7nA7bJxYdus4CnD-IAg"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDriveTool",
+      "typeVersion": 3,
+      "position": [
+        816,
+        464
+      ],
+      "id": "d458db0c-f960-476b-8cdb-a528409d4f73",
+      "name": "Search files and folders in Google Drive",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "14hwI8WGWweKqwBi",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -64,
+        0
+      ],
+      "id": "42cd0f9c-fe4d-45a2-8953-a1b0add6460d",
+      "name": "Webhook",
+      "webhookId": "3fe8ad30-4b79-4597-8111-61cb9ed442b5"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8080/message/sendText/my-whatsapp",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $json.receiver_number }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $json.agent_response ?? 'No response sent from the AI Agent' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        976,
+        0
+      ],
+      "id": "b6a54d30-c9a1-4fd5-bf38-14373c752648",
+      "name": "HTTP Request",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "8jlOVSNIqLhbUINy",
+          "name": "Evolution API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a89f0640-1b31-4504-b592-d3a69310d052",
+              "name": "agent_response",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            },
+            {
+              "id": "b1be9f8d-309f-48f1-ad53-d59f2e0892f5",
+              "name": "receiver_number",
+              "value": "={{ $('Extract message from Whatsapp').item.json.phoneNumber }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        768,
+        0
+      ],
+      "id": "3acd9c92-effc-4b05-9eed-06428c7ad25b",
+      "name": "Extract data from agent"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "272804f8-79cb-46b1-909d-92d28946cba7",
+              "name": "phoneNumber",
+              "value": "={{ $json.body.data.key.remoteJid.split('@')[0] }}",
+              "type": "string"
+            },
+            {
+              "id": "9378631b-2990-4a6e-9808-e403eab71e2f",
+              "name": "messageText",
+              "value": "={{ $json.body.data.message.conversation }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        176,
+        0
+      ],
+      "id": "9188a794-2634-4171-b7ac-ef05d4e03ad5",
+      "name": "Extract message from Whatsapp"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Use this tool to get a list of all WhatsApp chats including contacts and groups. Returns contact names, phone numbers, and last messages. Use when user asks about their WhatsApp contacts, recent chats, or who messaged them.",
+        "method": "POST",
+        "url": "http://localhost:8080/chat/findChats/my-whatsapp",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "d2b9f256bfebf3a66840e0d8711654a1576ea4aabe2cb43df942dfcea244e202"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        624,
+        464
+      ],
+      "id": "e32a4180-686d-4100-9c31-5817730bd514",
+      "name": "get_whatsapp_chats"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Fetches WhatsApp messages from a specific contact.\nInput: remoteJid from get_whatsapp_chats output (e.g., \"31617067698@s.whatsapp.net\")\nReturns: Last 10 messages from that contact.\n\nHOW TO USE:\n1. First call get_whatsapp_chats to get list of all contacts\n2. Find the contact in the results - look for their \"remoteJid\" or \"id\" field\n3. Call this tool with that exact remoteJid value\n\nExample: If get_whatsapp_chats shows:\n{\"id\": \"31617067698@s.whatsapp.net\", \"pushName\": \"Piyali Nath NL\"}\n\nThen call this tool with: {\"remoteJid\": \"31617067698@s.whatsapp.net\"}",
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/fetch-whatsapp-messages",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "remoteJid",
+              "value": "={{ $fromAI('parameters0_Value', ``, 'string') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        432,
+        464
+      ],
+      "id": "918912e5-60c0-403f-a5a1-fd85874b6aab",
+      "name": "get_messages_from_contact"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search files and folders in Google Drive": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract message from Whatsapp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Extract data from agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract data from agent": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract message from Whatsapp": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_whatsapp_chats": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_messages_from_contact": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "2eb33ccb-4e98-46fe-bdbe-9d0c3b9a25e9",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4343c0b2bb48a5b8b3f3ca169f8f303ccd9839665a8a546e903e6f33f9b86b27"
+  },
+  "id": "5AI1wT8vZ8KOXTgC",
+  "tags": []
+}
